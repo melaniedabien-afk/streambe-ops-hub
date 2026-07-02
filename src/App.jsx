@@ -165,6 +165,7 @@ function scanCopy(text) {
 const APPROVALS_LOG_KEY = "approvals-log";
 
 export default function StreambeOpsHub() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeModule, setActiveModule] = useState("calendario");
 
   const [items, setItems] = useState(null);
@@ -463,7 +464,7 @@ export default function StreambeOpsHub() {
       style={{
         fontFamily: "'Inter', sans-serif",
         background: COLORS.bg,
-        minHeight: "600px",
+        minHeight: "100dvh",
         display: "flex",
         color: COLORS.ink,
       }}
@@ -471,7 +472,24 @@ export default function StreambeOpsHub() {
       <style>{FONT_IMPORT}</style>
 
       {/* ---------- Sidebar ---------- */}
+      {/* Overlay para cerrar sidebar en mobile */}
+      <div
+        id="sidebar-overlay"
+        className={sidebarOpen ? "visible" : ""}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      {/* Botón hamburger - visible en mobile/tablet */}
+      <button
+        id="hamburger-btn"
+        aria-label={sidebarOpen ? "Cerrar menú" : "Abrir menú"}
+        onClick={() => setSidebarOpen((o) => !o)}
+      >
+        <span /><span /><span />
+      </button>
+
       <aside
+        className={sidebarOpen ? "sidebar-open" : ""}
         style={{
           width: 240,
           background: COLORS.navy,
@@ -508,7 +526,7 @@ export default function StreambeOpsHub() {
             <button
               key={m.id}
               disabled={!m.active}
-              onClick={() => m.active && setActiveModule(m.id)}
+              onClick={() => { if (m.active) { setActiveModule(m.id); setSidebarOpen(false); } }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -557,7 +575,7 @@ export default function StreambeOpsHub() {
       <main style={{ flex: 1, padding: "28px 32px", overflowX: "auto" }}>
         {activeModule === "calendario" && (
         <>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+        <div className="module-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
             <h1
               style={{
@@ -619,7 +637,7 @@ export default function StreambeOpsHub() {
             Cargando calendario…
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(220px, 1fr))", gap: 16 }}>
+          <div className="kanban-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16 }}>
             {STATUSES.map((status, colIdx) => (
               <div key={status.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div
@@ -769,7 +787,7 @@ export default function StreambeOpsHub() {
 
         {activeModule === "research" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div className="module-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
             <div>
               <h1
                 style={{
@@ -1109,7 +1127,7 @@ export default function StreambeOpsHub() {
 
         {activeModule === "assets" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div className="module-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
             <div>
               <h1
                 style={{
