@@ -1,3 +1,4 @@
+// v2 - responsive layout
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Plus, X, Linkedin, Instagram, Calendar, ChevronRight, ChevronLeft,
