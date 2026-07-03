@@ -5,7 +5,9 @@ import {
   ClipboardList, Users, Megaphone, Loader2, AlertCircle, Globe,
   Rows3, LayoutList, Building2, ExternalLink, Clock, PenLine,
   Image, FileText, Video, Shapes, Link2, ShieldCheck, ShieldAlert,
-  ThumbsUp, MessageSquareWarning, History
+  ThumbsUp, MessageSquareWarning, History, BookOpen, Download, Upload,
+  Lightbulb, Hash, Award, CalendarDays, MessageSquare, UserCircle2,
+  Settings, ArrowRight, BarChart3
 } from "lucide-react";
 
 /* ---------- Tokens de marca — oficiales, del Manual de Marca Streambe
@@ -31,11 +33,12 @@ const FONT_IMPORT = `
 `;
 
 const MODULES = [
+  { id: "dashboard", label: "Resumen", icon: BarChart3, active: true },
   { id: "calendario", label: "Calendario editorial", icon: Calendar, active: true },
   { id: "research", label: "Research competitivo", icon: Search, active: true },
-  { id: "plan", label: "Plan 2026", icon: LayoutGrid, active: true },
   { id: "assets", label: "Banco de assets", icon: Sparkles, active: true },
-  { id: "equipo", label: "Aprobaciones", icon: Users, active: true },
+  { id: "recursos", label: "Recursos de marca", icon: BookOpen, active: true },
+  { id: "equipo", label: "Equipo", icon: Users, active: true },
 ];
 
 const STATUSES = [
@@ -44,6 +47,13 @@ const STATUSES = [
   { id: "aprobacion", label: "Aprobación" },
   { id: "publicado", label: "Publicado" },
 ];
+
+const CONTENT_STATUS_META = {
+  idea: { label: "Idea", bg: "#EEF1F5", text: "#5B6B7C" },
+  borrador: { label: "Borrador", bg: "rgba(245,158,11,0.14)", text: "#B45309" },
+  aprobacion: { label: "Aprobación", bg: "rgba(2,83,232,0.1)", text: "#0253E8" },
+  publicado: { label: "Publicado", bg: "rgba(41,201,39,0.12)", text: "#15803D" },
+};
 
 const CHECKS = [
   { id: "triada", label: "Estructura triádica" },
@@ -67,6 +77,7 @@ const emptyForm = () => ({
   notes: "",
   status: "idea",
   checks: {},
+  owner: "",
 });
 
 /* ---------- Research competitivo ---------- */
@@ -91,48 +102,6 @@ const emptyCompetitor = () => ({
   weaknesses: "",
   differentiator: "",
 });
-
-/* ---------- Plan de marketing 2026 (6 agentes) ---------- */
-const PLAN_KEY = "plan-2026-agents";
-const PLAN_STATUSES = ["Pendiente", "En curso", "Completado"];
-const DEFAULT_AGENTS = [
-  {
-    id: "marketing-strategist",
-    name: "Marketing Strategist",
-    status: "Completado",
-    notes: "",
-  },
-  {
-    id: "social-community",
-    name: "Social Media & Community",
-    status: "Completado",
-    notes: "",
-  },
-  {
-    id: "content-seo",
-    name: "Content & SEO",
-    status: "Completado",
-    notes: "",
-  },
-  {
-    id: "branding-positioning",
-    name: "Branding & Positioning",
-    status: "Pendiente",
-    notes: "",
-  },
-  {
-    id: "paid-demand",
-    name: "Paid Media & Demand",
-    status: "Pendiente",
-    notes: "",
-  },
-  {
-    id: "alliances-events",
-    name: "Alliances & Events",
-    status: "Pendiente",
-    notes: "",
-  },
-];
 
 /* ---------- Banco de assets ---------- */
 const ASSETS_KEY = "brand-assets";
@@ -164,14 +133,35 @@ function scanCopy(text) {
 /* ---------- Aprobaciones ---------- */
 const APPROVALS_LOG_KEY = "approvals-log";
 
+/* ---------- Herramientas nuevas del área ---------- */
+const IDEAS_KEY = "content-ideas";
+const DATES_KEY = "key-dates";
+const PERSONAS_KEY = "buyer-personas";
+const CASES_KEY = "client-cases";
+const HASHTAGS_KEY = "hashtag-library";
+const NOTES_KEY = "team-notes";
+
+const ALL_STORAGE_KEYS = [
+  STORAGE_KEY, COMPETITORS_KEY, ASSETS_KEY, APPROVALS_LOG_KEY,
+  IDEAS_KEY, DATES_KEY, PERSONAS_KEY, CASES_KEY, HASHTAGS_KEY, NOTES_KEY,
+];
+
+const emptyPersona = () => ({ id: null, name: "", market: "", description: "", painPoints: "", channels: "" });
+const emptyCase = () => ({ id: null, client: "", industry: "", summary: "", results: "", link: "" });
+const emptyIdea = () => ({ id: null, text: "", tags: "" });
+const emptyKeyDate = () => ({ id: null, date: "", title: "", notes: "" });
+const emptyNote = () => ({ id: null, author: "", text: "" });
+
 export default function StreambeOpsHub() {
-  const [activeModule, setActiveModule] = useState("calendario");
+  const [activeModule, setActiveModule] = useState("dashboard");
 
   const [items, setItems] = useState(null);
   const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [calView, setCalView] = useState("tablero"); // "tablero" | "fechas"
 
   const [competitors, setCompetitors] = useState(null);
   const [compError, setCompError] = useState(null);
@@ -179,12 +169,6 @@ export default function StreambeOpsHub() {
   const [compForm, setCompForm] = useState(emptyCompetitor());
   const [compSaving, setCompSaving] = useState(false);
   const [compView, setCompView] = useState("cards"); // "cards" | "matrix"
-
-  const [agents, setAgents] = useState(null);
-  const [agentError, setAgentError] = useState(null);
-  const [agentModalOpen, setAgentModalOpen] = useState(false);
-  const [agentForm, setAgentForm] = useState(null);
-  const [agentSaving, setAgentSaving] = useState(false);
 
   const [assets, setAssets] = useState(null);
   const [assetError, setAssetError] = useState(null);
@@ -197,6 +181,38 @@ export default function StreambeOpsHub() {
   const [changesModalOpen, setChangesModalOpen] = useState(false);
   const [changesTarget, setChangesTarget] = useState(null);
   const [changesComment, setChangesComment] = useState("");
+
+  const [ideas, setIdeas] = useState(null);
+  const [ideaFormText, setIdeaFormText] = useState("");
+  const [ideaFormTags, setIdeaFormTags] = useState("");
+
+  const [keyDates, setKeyDates] = useState(null);
+  const [kdFormDate, setKdFormDate] = useState("");
+  const [kdFormTitle, setKdFormTitle] = useState("");
+  const [kdFormNotes, setKdFormNotes] = useState("");
+
+  const [personas, setPersonas] = useState(null);
+  const [personaModalOpen, setPersonaModalOpen] = useState(false);
+  const [personaForm, setPersonaForm] = useState(emptyPersona());
+  const [personaSaving, setPersonaSaving] = useState(false);
+
+  const [cases, setCases] = useState(null);
+  const [caseModalOpen, setCaseModalOpen] = useState(false);
+  const [caseForm, setCaseForm] = useState(emptyCase());
+  const [caseSaving, setCaseSaving] = useState(false);
+
+  const [hashtags, setHashtags] = useState(null);
+  const [htFormTag, setHtFormTag] = useState("");
+  const [htFormCategory, setHtFormCategory] = useState("");
+
+  const [teamNotes, setTeamNotes] = useState(null);
+  const [noteFormAuthor, setNoteFormAuthor] = useState("");
+  const [noteFormText, setNoteFormText] = useState("");
+
+  const [recursosTab, setRecursosTab] = useState("personas"); // "personas" | "casos" | "hashtags"
+  const [equipoTab, setEquipoTab] = useState("aprobaciones"); // "aprobaciones" | "carga" | "notas"
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
+  const [backupMessage, setBackupMessage] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -213,17 +229,6 @@ export default function StreambeOpsHub() {
         setCompetitors([]);
       }
       try {
-        const res3 = await window.storage.get(PLAN_KEY, true);
-        if (res3) {
-          setAgents(JSON.parse(res3.value));
-        } else {
-          await window.storage.set(PLAN_KEY, JSON.stringify(DEFAULT_AGENTS), true);
-          setAgents(DEFAULT_AGENTS);
-        }
-      } catch {
-        setAgents(DEFAULT_AGENTS);
-      }
-      try {
         const res4 = await window.storage.get(ASSETS_KEY, true);
         setAssets(res4 ? JSON.parse(res4.value) : []);
       } catch {
@@ -235,6 +240,30 @@ export default function StreambeOpsHub() {
       } catch {
         setApprovalsLog([]);
       }
+      try {
+        const r = await window.storage.get(IDEAS_KEY, true);
+        setIdeas(r ? JSON.parse(r.value) : []);
+      } catch { setIdeas([]); }
+      try {
+        const r = await window.storage.get(DATES_KEY, true);
+        setKeyDates(r ? JSON.parse(r.value) : []);
+      } catch { setKeyDates([]); }
+      try {
+        const r = await window.storage.get(PERSONAS_KEY, true);
+        setPersonas(r ? JSON.parse(r.value) : []);
+      } catch { setPersonas([]); }
+      try {
+        const r = await window.storage.get(CASES_KEY, true);
+        setCases(r ? JSON.parse(r.value) : []);
+      } catch { setCases([]); }
+      try {
+        const r = await window.storage.get(HASHTAGS_KEY, true);
+        setHashtags(r ? JSON.parse(r.value) : []);
+      } catch { setHashtags([]); }
+      try {
+        const r = await window.storage.get(NOTES_KEY, true);
+        setTeamNotes(r ? JSON.parse(r.value) : []);
+      } catch { setTeamNotes([]); }
     })();
   }, []);
 
@@ -288,32 +317,6 @@ export default function StreambeOpsHub() {
 
   const removeCompetitor = async (id) => {
     await persistCompetitors(competitors.filter((c) => c.id !== id));
-  };
-
-  const persistAgents = async (next) => {
-    setAgents(next);
-    try {
-      const res = await window.storage.set(PLAN_KEY, JSON.stringify(next), true);
-      if (!res) setAgentError("No se pudo guardar. Probá de nuevo.");
-      else setAgentError(null);
-    } catch {
-      setAgentError("No se pudo guardar. Probá de nuevo.");
-    }
-  };
-
-  const openEditAgent = (agent) => {
-    setAgentForm(agent);
-    setAgentModalOpen(true);
-  };
-
-  const closeAgentModal = () => setAgentModalOpen(false);
-
-  const saveAgentForm = async () => {
-    setAgentSaving(true);
-    const next = agents.map((a) => (a.id === agentForm.id ? agentForm : a));
-    await persistAgents(next);
-    setAgentSaving(false);
-    setAgentModalOpen(false);
   };
 
   const persistAssets = async (next) => {
@@ -409,6 +412,16 @@ export default function StreambeOpsHub() {
     setModalOpen(true);
   };
 
+  const openNewForApproval = () => {
+    setForm({ ...emptyForm(), status: "aprobacion" });
+    setModalOpen(true);
+  };
+
+  const sendToReview = async (item) => {
+    const next = items.map((it) => (it.id === item.id ? { ...it, status: "aprobacion" } : it));
+    await persist(next);
+  };
+
   const openEdit = (item) => {
     setForm(item);
     setModalOpen(true);
@@ -457,6 +470,152 @@ export default function StreambeOpsHub() {
     (items || []).forEach((it) => g[it.status]?.push(it));
     return g;
   }, [items]);
+
+  /* ---------- Banco de ideas ---------- */
+  const persistIdeas = async (next) => {
+    setIdeas(next);
+    try { await window.storage.set(IDEAS_KEY, JSON.stringify(next), true); } catch {}
+  };
+  const addIdea = async () => {
+    if (!ideaFormText.trim()) return;
+    await persistIdeas([...(ideas || []), { id: crypto.randomUUID(), text: ideaFormText, tags: ideaFormTags }]);
+    setIdeaFormText("");
+    setIdeaFormTags("");
+  };
+  const removeIdea = async (id) => {
+    await persistIdeas((ideas || []).filter((i) => i.id !== id));
+  };
+  const promoteIdea = async (idea) => {
+    const newItem = { ...emptyForm(), id: crypto.randomUUID(), title: idea.text, status: "idea" };
+    await persist([...(items || []), newItem]);
+    await removeIdea(idea.id);
+    setActiveModule("calendario");
+  };
+
+  /* ---------- Fechas clave ---------- */
+  const persistKeyDates = async (next) => {
+    setKeyDates(next);
+    try { await window.storage.set(DATES_KEY, JSON.stringify(next), true); } catch {}
+  };
+  const addKeyDate = async () => {
+    if (!kdFormDate || !kdFormTitle.trim()) return;
+    const next = [...(keyDates || []), { id: crypto.randomUUID(), date: kdFormDate, title: kdFormTitle, notes: kdFormNotes }];
+    next.sort((a, b) => a.date.localeCompare(b.date));
+    await persistKeyDates(next);
+    setKdFormDate(""); setKdFormTitle(""); setKdFormNotes("");
+  };
+  const removeKeyDate = async (id) => {
+    await persistKeyDates((keyDates || []).filter((d) => d.id !== id));
+  };
+
+  /* ---------- Buyer personas ---------- */
+  const persistPersonas = async (next) => {
+    setPersonas(next);
+    try { await window.storage.set(PERSONAS_KEY, JSON.stringify(next), true); } catch {}
+  };
+  const openNewPersona = () => { setPersonaForm(emptyPersona()); setPersonaModalOpen(true); };
+  const openEditPersona = (p) => { setPersonaForm(p); setPersonaModalOpen(true); };
+  const savePersonaForm = async () => {
+    if (!personaForm.name.trim()) return;
+    setPersonaSaving(true);
+    let next;
+    if (personaForm.id) next = personas.map((p) => (p.id === personaForm.id ? personaForm : p));
+    else next = [...personas, { ...personaForm, id: crypto.randomUUID() }];
+    await persistPersonas(next);
+    setPersonaSaving(false);
+    setPersonaModalOpen(false);
+  };
+  const removePersona = async (id) => {
+    await persistPersonas(personas.filter((p) => p.id !== id));
+  };
+
+  /* ---------- Casos de éxito ---------- */
+  const persistCases = async (next) => {
+    setCases(next);
+    try { await window.storage.set(CASES_KEY, JSON.stringify(next), true); } catch {}
+  };
+  const openNewCase = () => { setCaseForm(emptyCase()); setCaseModalOpen(true); };
+  const openEditCase = (c) => { setCaseForm(c); setCaseModalOpen(true); };
+  const saveCaseForm = async () => {
+    if (!caseForm.client.trim()) return;
+    setCaseSaving(true);
+    let next;
+    if (caseForm.id) next = cases.map((c) => (c.id === caseForm.id ? caseForm : c));
+    else next = [...cases, { ...caseForm, id: crypto.randomUUID() }];
+    await persistCases(next);
+    setCaseSaving(false);
+    setCaseModalOpen(false);
+  };
+  const removeCase = async (id) => {
+    await persistCases(cases.filter((c) => c.id !== id));
+  };
+
+  /* ---------- Biblioteca de hashtags ---------- */
+  const persistHashtags = async (next) => {
+    setHashtags(next);
+    try { await window.storage.set(HASHTAGS_KEY, JSON.stringify(next), true); } catch {}
+  };
+  const addHashtag = async () => {
+    if (!htFormTag.trim()) return;
+    const tag = htFormTag.trim().replace(/^#/, "");
+    await persistHashtags([...(hashtags || []), { id: crypto.randomUUID(), tag, category: htFormCategory }]);
+    setHtFormTag(""); setHtFormCategory("");
+  };
+  const removeHashtag = async (id) => {
+    await persistHashtags((hashtags || []).filter((h) => h.id !== id));
+  };
+
+  /* ---------- Notas del equipo ---------- */
+  const persistNotes = async (next) => {
+    setTeamNotes(next);
+    try { await window.storage.set(NOTES_KEY, JSON.stringify(next), true); } catch {}
+  };
+  const addNote = async () => {
+    if (!noteFormText.trim()) return;
+    const next = [{ id: crypto.randomUUID(), author: noteFormAuthor || "Sin firma", text: noteFormText, date: new Date().toISOString() }, ...(teamNotes || [])];
+    await persistNotes(next);
+    setNoteFormText("");
+  };
+  const removeNote = async (id) => {
+    await persistNotes((teamNotes || []).filter((n) => n.id !== id));
+  };
+
+  /* ---------- Backup ---------- */
+  const exportBackup = async () => {
+    const data = {};
+    for (const key of ALL_STORAGE_KEYS) {
+      try {
+        const r = await window.storage.get(key, true);
+        data[key] = r ? r.value : null;
+      } catch {
+        data[key] = null;
+      }
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `streambe-ops-hub-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setBackupMessage({ type: "ok", text: "Backup descargado." });
+  };
+
+  const importBackup = async (file) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      for (const key of ALL_STORAGE_KEYS) {
+        if (data[key] !== undefined && data[key] !== null) {
+          await window.storage.set(key, data[key], true);
+        }
+      }
+      setBackupMessage({ type: "ok", text: "Backup restaurado. Recargando…" });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch {
+      setBackupMessage({ type: "error", text: "No se pudo leer el archivo. ¿Es un backup válido?" });
+    }
+  };
 
   return (
     <div
@@ -548,13 +707,129 @@ export default function StreambeOpsHub() {
           );
         })}
 
-        <div style={{ marginTop: "auto", paddingTop: 20, fontSize: 11, color: "#5C7188" }}>
-          Los 5 módulos comparten la misma base — lo que cargues en uno se refleja en el resto.
+        <div style={{ marginTop: "auto", paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={() => { setBackupMessage(null); setBackupModalOpen(true); }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 8,
+              padding: "9px 12px",
+              color: "#C7D2DD",
+              fontSize: 12.5,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            <Settings size={14} /> Backup de datos
+          </button>
+          <div style={{ fontSize: 11, color: "#5C7188" }}>
+            Los módulos comparten la misma base — lo que cargues en uno se refleja en el resto.
+          </div>
         </div>
       </aside>
 
       {/* ---------- Main ---------- */}
       <main style={{ flex: 1, padding: "28px 32px", overflowX: "auto" }}>
+        {activeModule === "dashboard" && (
+        <>
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, color: COLORS.navy }}>
+              Resumen
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: COLORS.inkSoft }}>
+              Una foto de todo lo que está pasando ahora mismo en la app.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 28 }}>
+            {[
+              { label: "Ideas en el banco", value: (ideas || []).length, icon: Lightbulb, color: COLORS.tech, module: "calendario" },
+              { label: "En calendario", value: (items || []).length, icon: Calendar, color: COLORS.cyan, module: "calendario" },
+              { label: "Esperando aprobación", value: (items || []).filter((it) => it.status === "aprobacion").length, icon: ThumbsUp, color: COLORS.amber, module: "equipo" },
+              { label: "Publicados", value: (items || []).filter((it) => it.status === "publicado").length, icon: CheckCircle2, color: COLORS.green, module: "calendario" },
+              { label: "Competidores", value: (competitors || []).length, icon: Search, color: COLORS.tech, module: "research" },
+              { label: "Assets aprobados", value: (assets || []).filter((a) => a.approved).length, icon: Sparkles, color: COLORS.cyan, module: "assets" },
+              { label: "Buyer personas", value: (personas || []).length, icon: UserCircle2, color: COLORS.tech, module: "recursos" },
+              { label: "Casos de éxito", value: (cases || []).length, icon: Award, color: COLORS.amber, module: "recursos" },
+            ].map((s) => {
+              const Icon = s.icon;
+              return (
+                <div
+                  key={s.label}
+                  onClick={() => setActiveModule(s.module)}
+                  style={{
+                    background: COLORS.surface,
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: 12,
+                    padding: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Icon size={16} color={s.color} />
+                  <div style={{ fontSize: 22, fontWeight: 700, color: COLORS.navy, fontFamily: "'Familjen Grotesk', sans-serif", marginTop: 8 }}>
+                    {s.value}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: COLORS.inkSoft, marginTop: 2 }}>{s.label}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                <CalendarDays size={14} color={COLORS.inkSoft} />
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.inkSoft, fontFamily: "'Familjen Grotesk', sans-serif" }}>
+                  Próximas fechas clave
+                </span>
+              </div>
+              {(keyDates || []).filter((d) => d.date >= new Date().toISOString().slice(0, 10)).length === 0 ? (
+                <div style={{ fontSize: 12, color: "#A9B6C3" }}>No hay fechas próximas cargadas.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {(keyDates || [])
+                    .filter((d) => d.date >= new Date().toISOString().slice(0, 10))
+                    .slice(0, 5)
+                    .map((d) => (
+                      <div key={d.id} style={{ display: "flex", gap: 8, fontSize: 12.5, color: COLORS.ink }}>
+                        <span style={{ fontFamily: "'Inter', monospace", color: COLORS.tech, flexShrink: 0 }}>
+                          {new Date(d.date + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                        </span>
+                        {d.title}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                <MessageSquare size={14} color={COLORS.inkSoft} />
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.inkSoft, fontFamily: "'Familjen Grotesk', sans-serif" }}>
+                  Últimas notas del equipo
+                </span>
+              </div>
+              {(teamNotes || []).length === 0 ? (
+                <div style={{ fontSize: 12, color: "#A9B6C3" }}>Todavía no hay notas.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {(teamNotes || []).slice(0, 4).map((n) => (
+                    <div key={n.id} style={{ fontSize: 12.5, color: COLORS.ink }}>
+                      <strong>{n.author}:</strong> {n.text}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+        )}
+
         {activeModule === "calendario" && (
         <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
@@ -574,25 +849,57 @@ export default function StreambeOpsHub() {
               Idea → Borrador → Aprobación → Publicado. Un vistazo del contenido en curso.
             </p>
           </div>
-          <button
-            onClick={openNew}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: COLORS.navy,
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              padding: "10px 16px",
-              fontSize: 13.5,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            <Plus size={16} /> Nuevo contenido
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden" }}>
+              <button
+                onClick={() => setCalView("tablero")}
+                style={viewToggleStyle(calView === "tablero")}
+                title="Vista tablero"
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                onClick={() => setCalView("fechas")}
+                style={viewToggleStyle(calView === "fechas")}
+                title="Vista de fechas"
+              >
+                <Calendar size={14} />
+              </button>
+              <button
+                onClick={() => setCalView("ideas")}
+                style={viewToggleStyle(calView === "ideas")}
+                title="Banco de ideas"
+              >
+                <Lightbulb size={14} />
+              </button>
+              <button
+                onClick={() => setCalView("clave")}
+                style={viewToggleStyle(calView === "clave")}
+                title="Fechas clave del año"
+              >
+                <CalendarDays size={14} />
+              </button>
+            </div>
+            <button
+              onClick={openNew}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: COLORS.navy,
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "10px 16px",
+                fontSize: 13.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <Plus size={16} /> Nuevo contenido
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -618,7 +925,7 @@ export default function StreambeOpsHub() {
             <Loader2 size={16} className="spin" style={{ animation: "spin 1s linear infinite" }} />
             Cargando calendario…
           </div>
-        ) : (
+        ) : calView === "tablero" ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(220px, 1fr))", gap: 16 }}>
             {STATUSES.map((status, colIdx) => (
               <div key={status.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -759,10 +1066,106 @@ export default function StreambeOpsHub() {
               </div>
             ))}
           </div>
+        ) : calView === "fechas" ? (
+          <DateView items={items} onOpenItem={openEdit} />
+        ) : calView === "ideas" ? (
+          <div style={{ maxWidth: 640 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <input
+                value={ideaFormText}
+                onChange={(e) => setIdeaFormText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addIdea()}
+                placeholder="Nueva idea suelta…"
+                style={{ ...inputStyle, flex: 2 }}
+              />
+              <input
+                value={ideaFormTags}
+                onChange={(e) => setIdeaFormTags(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addIdea()}
+                placeholder="Tags (opcional)"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                onClick={addIdea}
+                style={{ border: "none", background: COLORS.navy, color: "#fff", borderRadius: 8, padding: "0 16px", cursor: "pointer", fontWeight: 600 }}
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+            {(ideas || []).length === 0 ? (
+              <div style={{ border: `1px dashed ${COLORS.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: "#A9B6C3", fontSize: 13 }}>
+                Tirá acá cualquier idea suelta, sin necesidad de fecha ni formato todavía.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {ideas.map((idea) => (
+                  <div key={idea.id} style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 14px" }}>
+                    <Lightbulb size={14} color={COLORS.tech} style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: COLORS.ink }}>{idea.text}</div>
+                      {idea.tags && <div style={{ fontSize: 10.5, color: COLORS.inkSoft, marginTop: 2 }}>{idea.tags}</div>}
+                    </div>
+                    <button
+                      onClick={() => promoteIdea(idea)}
+                      title="Pasar al calendario como idea"
+                      style={{ display: "flex", alignItems: "center", gap: 4, border: `1px solid ${COLORS.border}`, background: "#fff", borderRadius: 7, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, color: COLORS.navy, cursor: "pointer", flexShrink: 0 }}
+                    >
+                      Pasar al calendario <ArrowRight size={12} />
+                    </button>
+                    <button onClick={() => removeIdea(idea.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#C2CCD6", flexShrink: 0 }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ maxWidth: 640 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <input
+                type="date"
+                value={kdFormDate}
+                onChange={(e) => setKdFormDate(e.target.value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <input
+                value={kdFormTitle}
+                onChange={(e) => setKdFormTitle(e.target.value)}
+                placeholder="Ej: Día del Programador"
+                style={{ ...inputStyle, flex: 2 }}
+              />
+              <button
+                onClick={addKeyDate}
+                style={{ border: "none", background: COLORS.navy, color: "#fff", borderRadius: 8, padding: "0 16px", cursor: "pointer", fontWeight: 600 }}
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+            {(keyDates || []).length === 0 ? (
+              <div style={{ border: `1px dashed ${COLORS.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: "#A9B6C3", fontSize: 13 }}>
+                Cargá efemérides, feriados o eventos de la industria para planificar con anticipación.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {keyDates.map((d) => (
+                  <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 14px" }}>
+                    <span style={{ fontFamily: "'Inter', monospace", fontSize: 12, color: COLORS.tech, flexShrink: 0 }}>
+                      {new Date(d.date + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                    </span>
+                    <span style={{ flex: 1, fontSize: 13, color: COLORS.ink }}>{d.title}</span>
+                    <button onClick={() => removeKeyDate(d.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#C2CCD6", flexShrink: 0 }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         <div style={{ marginTop: 28, fontSize: 11.5, color: "#9AA9B8", display: "flex", alignItems: "center", gap: 6 }}>
-          <Megaphone size={13} /> Este calendario es compartido: lo que cargues acá lo van a ver todos los que abran esta app.
+          <Megaphone size={13} /> Los datos se guardan en este navegador. Si abrís la app en otra compu, no vas a ver lo mismo (ver README).
         </div>
         </>
         )}
@@ -1002,111 +1405,6 @@ export default function StreambeOpsHub() {
         </>
         )}
 
-        {activeModule === "plan" && (
-        <>
-          {(() => {
-            const total = agents ? agents.length : 6;
-            const done = agents ? agents.filter((a) => a.status === "Completado").length : 0;
-            const pct = Math.round((done / total) * 100);
-            return (
-              <>
-                <div style={{ marginBottom: 24 }}>
-                  <h1
-                    style={{
-                      fontFamily: "'Familjen Grotesk', sans-serif",
-                      fontSize: 22,
-                      fontWeight: 700,
-                      margin: 0,
-                      color: COLORS.navy,
-                    }}
-                  >
-                    Plan de marketing 2026
-                  </h1>
-                  <p style={{ margin: "4px 0 14px", fontSize: 13, color: COLORS.inkSoft }}>
-                    Seguimiento de los 6 agentes que arman el plan completo.
-                  </p>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ flex: 1, height: 8, background: COLORS.border, borderRadius: 6, overflow: "hidden" }}>
-                      <div
-                        style={{
-                          width: `${pct}%`,
-                          height: "100%",
-                          background: `linear-gradient(90deg, ${COLORS.cyan}, ${COLORS.tech})`,
-                          transition: "width 0.3s ease",
-                        }}
-                      />
-                    </div>
-                    <span style={{ fontFamily: "'Inter', monospace", fontSize: 12, color: COLORS.inkSoft, whiteSpace: "nowrap" }}>
-                      {done}/{total} completados
-                    </span>
-                  </div>
-                </div>
-
-                {agentError && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      background: "#FDECEC",
-                      color: "#EB2D2D",
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      fontSize: 12.5,
-                      marginBottom: 16,
-                    }}
-                  >
-                    <AlertCircle size={14} /> {agentError}
-                  </div>
-                )}
-
-                {agents === null ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.inkSoft, fontSize: 13, padding: 40 }}>
-                    <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
-                    Cargando plan…
-                  </div>
-                ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
-                    {agents.map((a) => (
-                      <div
-                        key={a.id}
-                        onClick={() => openEditAgent(a)}
-                        style={{
-                          background: COLORS.surface,
-                          border: `1px solid ${COLORS.border}`,
-                          borderRadius: 12,
-                          padding: 16,
-                          cursor: "pointer",
-                          boxShadow: "0 1px 2px rgba(16,24,38,0.04)",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.ink, fontFamily: "'Familjen Grotesk', sans-serif", lineHeight: 1.3 }}>
-                            {a.name}
-                          </span>
-                          <PenLine size={13} color="#C2CCD6" />
-                        </div>
-
-                        <div style={{ marginTop: 10 }}>
-                          <StatusBadge status={a.status} />
-                        </div>
-
-                        {a.notes && (
-                          <div style={{ marginTop: 10, fontSize: 12, color: COLORS.inkSoft, lineHeight: 1.4 }}>
-                            {a.notes}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </>
-        )}
-
         {activeModule === "assets" && (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -1341,6 +1639,163 @@ export default function StreambeOpsHub() {
         </>
         )}
 
+        {activeModule === "recursos" && (
+        <>
+          <div style={{ marginBottom: 20 }}>
+            <h1 style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, color: COLORS.navy }}>
+              Recursos de marca
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: COLORS.inkSoft }}>
+              Conocimiento reutilizable: a quién le hablamos, con qué casos, con qué palabras.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 6, marginBottom: 20, borderBottom: `1px solid ${COLORS.border}` }}>
+            {[
+              { id: "personas", label: "Buyer personas" },
+              { id: "casos", label: "Casos de éxito" },
+              { id: "hashtags", label: "Hashtags & keywords" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setRecursosTab(t.id)}
+                style={{
+                  border: "none",
+                  background: "none",
+                  padding: "10px 4px",
+                  marginRight: 18,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: recursosTab === t.id ? COLORS.navy : COLORS.inkSoft,
+                  borderBottom: recursosTab === t.id ? `2px solid ${COLORS.tech}` : "2px solid transparent",
+                  cursor: "pointer",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {recursosTab === "personas" && (
+            <>
+              <button
+                onClick={openNewPersona}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: COLORS.navy, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}
+              >
+                <Plus size={16} /> Agregar buyer persona
+              </button>
+              {(personas || []).length === 0 ? (
+                <div style={{ border: `1px dashed ${COLORS.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: "#A9B6C3", fontSize: 13 }}>
+                  Definí a quién le hablás en cada mercado (Argentina, Uruguay, Paraguay, España, EE.UU.).
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+                  {personas.map((p) => (
+                    <div key={p.id} onClick={() => openEditPersona(p)} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <UserCircle2 size={15} color={COLORS.tech} />
+                          <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.ink, fontFamily: "'Familjen Grotesk', sans-serif" }}>{p.name}</span>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); removePersona(p.id); }} style={{ border: "none", background: "none", cursor: "pointer", color: "#C2CCD6" }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      {p.market && <div style={{ fontSize: 10.5, color: COLORS.inkSoft, marginTop: 4, fontFamily: "'Inter', monospace" }}>{p.market}</div>}
+                      {p.description && <div style={{ fontSize: 12, color: COLORS.ink, marginTop: 8 }}>{p.description}</div>}
+                      {p.painPoints && <div style={{ fontSize: 11.5, color: COLORS.inkSoft, marginTop: 6 }}><strong>Dolores:</strong> {p.painPoints}</div>}
+                      {p.channels && <div style={{ fontSize: 11.5, color: COLORS.inkSoft, marginTop: 4 }}><strong>Canales:</strong> {p.channels}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {recursosTab === "casos" && (
+            <>
+              <button
+                onClick={openNewCase}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: COLORS.navy, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}
+              >
+                <Plus size={16} /> Agregar caso de éxito
+              </button>
+              {(cases || []).length === 0 ? (
+                <div style={{ border: `1px dashed ${COLORS.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: "#A9B6C3", fontSize: 13 }}>
+                  Cargá Navent, YPF, Roemmers y los que se vayan sumando.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+                  {cases.map((c) => (
+                    <div key={c.id} onClick={() => openEditCase(c)} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <Award size={14} color={COLORS.amber} />
+                          <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.ink, fontFamily: "'Familjen Grotesk', sans-serif" }}>{c.client}</span>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); removeCase(c.id); }} style={{ border: "none", background: "none", cursor: "pointer", color: "#C2CCD6" }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      {c.industry && <div style={{ fontSize: 10.5, color: COLORS.inkSoft, marginTop: 4, fontFamily: "'Inter', monospace" }}>{c.industry}</div>}
+                      {c.summary && <div style={{ fontSize: 12, color: COLORS.ink, marginTop: 8 }}>{c.summary}</div>}
+                      {c.results && <div style={{ fontSize: 11.5, color: COLORS.inkSoft, marginTop: 6 }}><strong>Resultados:</strong> {c.results}</div>}
+                      {c.link && (
+                        <a href={c.link.startsWith("http") ? c.link : `https://${c.link}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: 11, color: COLORS.cyan, display: "flex", alignItems: "center", gap: 4, marginTop: 8 }}>
+                          <Link2 size={11} /> Abrir <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {recursosTab === "hashtags" && (
+            <>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16, maxWidth: 500 }}>
+                <input
+                  value={htFormTag}
+                  onChange={(e) => setHtFormTag(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addHashtag()}
+                  placeholder="hashtag o keyword"
+                  style={{ ...inputStyle, flex: 2 }}
+                />
+                <input
+                  value={htFormCategory}
+                  onChange={(e) => setHtFormCategory(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addHashtag()}
+                  placeholder="Categoría"
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button onClick={addHashtag} style={{ border: "none", background: COLORS.navy, color: "#fff", borderRadius: 8, padding: "0 16px", cursor: "pointer", fontWeight: 600 }}>
+                  <Plus size={16} />
+                </button>
+              </div>
+              {(hashtags || []).length === 0 ? (
+                <div style={{ border: `1px dashed ${COLORS.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: "#A9B6C3", fontSize: 13 }}>
+                  Sumá los hashtags y palabras clave que más usás, para no repetir siempre los mismos.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {hashtags.map((h) => (
+                    <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 6, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: "6px 12px" }}>
+                      <Hash size={12} color={COLORS.tech} />
+                      <span style={{ fontSize: 12.5, color: COLORS.ink }}>{h.tag}</span>
+                      {h.category && <span style={{ fontSize: 10, color: COLORS.inkSoft }}>· {h.category}</span>}
+                      <button onClick={() => removeHashtag(h.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#C2CCD6", padding: 0, display: "flex" }}>
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </>
+        )}
+
         {activeModule === "equipo" && (
         <>
           <div style={{ marginBottom: 20 }}>
@@ -1353,11 +1808,82 @@ export default function StreambeOpsHub() {
                 color: COLORS.navy,
               }}
             >
-              Aprobaciones
+              Equipo
             </h1>
             <p style={{ margin: "4px 0 0", fontSize: 13, color: COLORS.inkSoft }}>
-              Todo lo que está en "Aprobación" en el calendario, listo para que Vani lo revise acá.
+              Aprobaciones, quién tiene qué asignado, y avisos generales.
             </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 6, marginBottom: 20, borderBottom: `1px solid ${COLORS.border}` }}>
+            {[
+              { id: "aprobaciones", label: "Aprobaciones" },
+              { id: "carga", label: "Carga de trabajo" },
+              { id: "notas", label: "Notas del equipo" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setEquipoTab(t.id)}
+                style={{
+                  border: "none",
+                  background: "none",
+                  padding: "10px 4px",
+                  marginRight: 18,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: equipoTab === t.id ? COLORS.navy : COLORS.inkSoft,
+                  borderBottom: equipoTab === t.id ? `2px solid ${COLORS.tech}` : "2px solid transparent",
+                  cursor: "pointer",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {equipoTab === "aprobaciones" && (
+          <>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button
+                onClick={() => setPickerOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#fff",
+                  color: COLORS.navy,
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 8,
+                  padding: "10px 16px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                <Calendar size={15} /> Traer del calendario
+              </button>
+              <button
+                onClick={openNewForApproval}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: COLORS.navy,
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 16px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                <Plus size={16} /> Cargar para revisión
+              </button>
+            </div>
           </div>
 
           {items === null ? (
@@ -1379,7 +1905,7 @@ export default function StreambeOpsHub() {
                     marginBottom: 26,
                   }}
                 >
-                  Nada esperando revisión ahora mismo.
+                  Nada esperando revisión ahora mismo. Usá "Traer del calendario" para elegir algo que ya tenés como idea o borrador, o "Cargar para revisión" para algo nuevo.
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 26 }}>
@@ -1517,6 +2043,99 @@ export default function StreambeOpsHub() {
               ))}
             </div>
           )}
+          </>
+          )}
+
+          {equipoTab === "carga" && (() => {
+            const byOwner = {};
+            (items || []).forEach((it) => {
+              const owner = it.owner?.trim() || "Sin asignar";
+              if (!byOwner[owner]) byOwner[owner] = [];
+              byOwner[owner].push(it);
+            });
+            const owners = Object.keys(byOwner).sort((a, b) => (a === "Sin asignar" ? 1 : b === "Sin asignar" ? -1 : a.localeCompare(b)));
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {items === null ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.inkSoft, fontSize: 13 }}>
+                    <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Cargando…
+                  </div>
+                ) : owners.length === 0 ? (
+                  <div style={{ border: `1px dashed ${COLORS.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: "#A9B6C3", fontSize: 13 }}>
+                    No hay contenido cargado todavía.
+                  </div>
+                ) : (
+                  owners.map((owner) => (
+                    <div key={owner}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <UserCircle2 size={14} color={owner === "Sin asignar" ? "#A9B6C3" : COLORS.tech} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.navy, fontFamily: "'Familjen Grotesk', sans-serif" }}>{owner}</span>
+                        <span style={{ fontSize: 10.5, fontFamily: "'Inter', monospace", color: COLORS.inkSoft }}>{byOwner[owner].length} piezas</span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {byOwner[owner].map((it) => {
+                          const meta = CONTENT_STATUS_META[it.status];
+                          return (
+                            <div key={it.id} onClick={() => openEdit(it)} style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>
+                              <span style={{ flex: 1, fontSize: 12.5, color: COLORS.ink }}>{it.title}</span>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: meta.bg, color: meta.text }}>{meta.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            );
+          })()}
+
+          {equipoTab === "notas" && (
+            <div style={{ maxWidth: 560 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <input
+                  value={noteFormAuthor}
+                  onChange={(e) => setNoteFormAuthor(e.target.value)}
+                  placeholder="Tu nombre"
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <input
+                  value={noteFormText}
+                  onChange={(e) => setNoteFormText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addNote()}
+                  placeholder="Escribí un aviso para el equipo…"
+                  style={{ ...inputStyle, flex: 2 }}
+                />
+                <button onClick={addNote} style={{ border: "none", background: COLORS.navy, color: "#fff", borderRadius: 8, padding: "0 16px", cursor: "pointer", fontWeight: 600 }}>
+                  <Plus size={16} />
+                </button>
+              </div>
+              {(teamNotes || []).length === 0 ? (
+                <div style={{ border: `1px dashed ${COLORS.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: "#A9B6C3", fontSize: 13 }}>
+                  Todavía no hay avisos cargados.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {teamNotes.map((n) => (
+                    <div key={n.id} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ fontSize: 12.5, color: COLORS.ink }}>
+                          <strong>{n.author}</strong>
+                          <span style={{ fontSize: 10.5, color: "#A9B6C3", marginLeft: 8, fontFamily: "'Inter', monospace" }}>
+                            {new Date(n.date).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                          </span>
+                        </div>
+                        <button onClick={() => removeNote(n.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#C2CCD6" }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 13, color: COLORS.ink, marginTop: 4 }}>{n.text}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
         )}
       </main>
@@ -1593,6 +2212,14 @@ export default function StreambeOpsHub() {
               value={form.angle}
               onChange={(e) => setForm({ ...form, angle: e.target.value })}
               placeholder="Ej: foco en el mercado mexicano, no en la persona"
+              style={inputStyle}
+            />
+
+            <FieldLabel>Responsable (opcional)</FieldLabel>
+            <input
+              value={form.owner || ""}
+              onChange={(e) => setForm({ ...form, owner: e.target.value })}
+              placeholder="Ej: Vani"
               style={inputStyle}
             />
 
@@ -1790,97 +2417,6 @@ export default function StreambeOpsHub() {
         </div>
       )}
 
-      {/* ---------- Modal agente del plan ---------- */}
-      {agentModalOpen && agentForm && (
-        <div
-          onClick={closeAgentModal}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(11,30,51,0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 50,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              width: 420,
-              maxWidth: "90vw",
-              maxHeight: "85vh",
-              overflowY: "auto",
-              padding: 22,
-              fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2 style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 16, margin: 0, color: COLORS.navy }}>
-                {agentForm.name}
-              </h2>
-              <button onClick={closeAgentModal} style={{ border: "none", background: "none", cursor: "pointer", color: "#9AA9B8" }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <FieldLabel>Estado</FieldLabel>
-            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-              {PLAN_STATUSES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setAgentForm({ ...agentForm, status: s })}
-                  style={{
-                    flex: 1,
-                    padding: "8px 0",
-                    borderRadius: 8,
-                    border: `1px solid ${agentForm.status === s ? "transparent" : COLORS.border}`,
-                    background: agentForm.status === s ? statusColor(s).bg : "#fff",
-                    color: agentForm.status === s ? statusColor(s).text : COLORS.inkSoft,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            <FieldLabel>Notas / avance</FieldLabel>
-            <textarea
-              value={agentForm.notes}
-              onChange={(e) => setAgentForm({ ...agentForm, notes: e.target.value })}
-              rows={4}
-              placeholder="Qué se definió, qué falta, próximos pasos…"
-              style={{ ...inputStyle, resize: "vertical", marginBottom: 18 }}
-            />
-
-            <button
-              onClick={saveAgentForm}
-              disabled={agentSaving}
-              style={{
-                width: "100%",
-                background: COLORS.navy,
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                padding: "11px 0",
-                fontSize: 13.5,
-                fontWeight: 600,
-                cursor: agentSaving ? "default" : "pointer",
-                opacity: agentSaving ? 0.6 : 1,
-                fontFamily: "'Inter', sans-serif",
-              }}
-            >
-              {agentSaving ? "Guardando…" : "Guardar cambios"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ---------- Modal asset ---------- */}
       {assetModalOpen && (
         <div
@@ -1998,6 +2534,290 @@ export default function StreambeOpsHub() {
         </div>
       )}
 
+      {/* ---------- Modal traer del calendario ---------- */}
+      {pickerOpen && (
+        <div
+          onClick={() => setPickerOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(16,25,43,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              width: 460,
+              maxWidth: "90vw",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              padding: 22,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 16, margin: 0, color: COLORS.navy }}>
+                Traer del calendario
+              </h2>
+              <button onClick={() => setPickerOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", color: "#9AA9B8" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: 12.5, color: COLORS.inkSoft, marginTop: 0, marginBottom: 16 }}>
+              Elegí una idea o un borrador para mandarlo directo a revisión.
+            </p>
+
+            {(() => {
+              const pending = (items || []).filter((it) => it.status === "idea" || it.status === "borrador");
+              if (pending.length === 0) {
+                return (
+                  <div
+                    style={{
+                      border: `1px dashed ${COLORS.border}`,
+                      borderRadius: 10,
+                      padding: "24px 14px",
+                      textAlign: "center",
+                      color: "#A9B6C3",
+                      fontSize: 12.5,
+                    }}
+                  >
+                    No hay ideas ni borradores esperando en el calendario ahora mismo.
+                  </div>
+                );
+              }
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {pending.map((item) => {
+                    const Plat = PLATFORM_META[item.platform]?.icon;
+                    const meta = CONTENT_STATUS_META[item.status];
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          border: `1px solid ${COLORS.border}`,
+                          borderRadius: 10,
+                          padding: "10px 12px",
+                        }}
+                      >
+                        {Plat && <Plat size={14} color={PLATFORM_META[item.platform]?.color} style={{ flexShrink: 0 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {item.title}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              padding: "2px 6px",
+                              borderRadius: 5,
+                              background: meta.bg,
+                              color: meta.text,
+                            }}
+                          >
+                            {meta.label}
+                          </span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            await sendToReview(item);
+                            setPickerOpen(false);
+                          }}
+                          style={{
+                            flexShrink: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                            border: "none",
+                            background: COLORS.navy,
+                            color: "#fff",
+                            borderRadius: 7,
+                            padding: "7px 11px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Enviar <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Modal buyer persona ---------- */}
+      {personaModalOpen && (
+        <div onClick={() => setPersonaModalOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(16,25,43,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, width: 440, maxWidth: "90vw", maxHeight: "85vh", overflowY: "auto", padding: 22, fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 16, margin: 0, color: COLORS.navy }}>
+                {personaForm.id ? "Editar buyer persona" : "Nueva buyer persona"}
+              </h2>
+              <button onClick={() => setPersonaModalOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", color: "#9AA9B8" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <FieldLabel>Nombre</FieldLabel>
+            <input value={personaForm.name} onChange={(e) => setPersonaForm({ ...personaForm, name: e.target.value })} placeholder="Ej: Gerente de IT en pyme" style={inputStyle} />
+            <FieldLabel>Mercado</FieldLabel>
+            <input value={personaForm.market} onChange={(e) => setPersonaForm({ ...personaForm, market: e.target.value })} placeholder="Ej: Argentina, Uruguay, España…" style={inputStyle} />
+            <FieldLabel>Descripción</FieldLabel>
+            <textarea value={personaForm.description} onChange={(e) => setPersonaForm({ ...personaForm, description: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+            <FieldLabel>Dolores / necesidades</FieldLabel>
+            <textarea value={personaForm.painPoints} onChange={(e) => setPersonaForm({ ...personaForm, painPoints: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+            <FieldLabel>Canales donde está</FieldLabel>
+            <input value={personaForm.channels} onChange={(e) => setPersonaForm({ ...personaForm, channels: e.target.value })} placeholder="Ej: LinkedIn, eventos de industria" style={{ ...inputStyle, marginBottom: 18 }} />
+            <button onClick={savePersonaForm} disabled={personaSaving || !personaForm.name.trim()} style={{ width: "100%", background: COLORS.navy, color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontSize: 13.5, fontWeight: 600, cursor: "pointer", opacity: personaSaving || !personaForm.name.trim() ? 0.6 : 1 }}>
+              {personaSaving ? "Guardando…" : personaForm.id ? "Guardar cambios" : "Agregar"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Modal caso de éxito ---------- */}
+      {caseModalOpen && (
+        <div onClick={() => setCaseModalOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(16,25,43,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, width: 440, maxWidth: "90vw", maxHeight: "85vh", overflowY: "auto", padding: 22, fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 16, margin: 0, color: COLORS.navy }}>
+                {caseForm.id ? "Editar caso de éxito" : "Nuevo caso de éxito"}
+              </h2>
+              <button onClick={() => setCaseModalOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", color: "#9AA9B8" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <FieldLabel>Cliente</FieldLabel>
+            <input value={caseForm.client} onChange={(e) => setCaseForm({ ...caseForm, client: e.target.value })} placeholder="Ej: YPF" style={inputStyle} />
+            <FieldLabel>Industria</FieldLabel>
+            <input value={caseForm.industry} onChange={(e) => setCaseForm({ ...caseForm, industry: e.target.value })} placeholder="Ej: Energía" style={inputStyle} />
+            <FieldLabel>Resumen del proyecto</FieldLabel>
+            <textarea value={caseForm.summary} onChange={(e) => setCaseForm({ ...caseForm, summary: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+            <FieldLabel>Resultados</FieldLabel>
+            <textarea value={caseForm.results} onChange={(e) => setCaseForm({ ...caseForm, results: e.target.value })} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+            <FieldLabel>Link (case study, portfolio, etc.)</FieldLabel>
+            <input value={caseForm.link} onChange={(e) => setCaseForm({ ...caseForm, link: e.target.value })} placeholder="https://…" style={{ ...inputStyle, marginBottom: 18 }} />
+            <button onClick={saveCaseForm} disabled={caseSaving || !caseForm.client.trim()} style={{ width: "100%", background: COLORS.navy, color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontSize: 13.5, fontWeight: 600, cursor: "pointer", opacity: caseSaving || !caseForm.client.trim() ? 0.6 : 1 }}>
+              {caseSaving ? "Guardando…" : caseForm.id ? "Guardar cambios" : "Agregar"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Modal backup ---------- */}
+      {backupModalOpen && (
+        <div
+          onClick={() => setBackupModalOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(16,25,43,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              width: 420,
+              maxWidth: "90vw",
+              padding: 22,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 16, margin: 0, color: COLORS.navy }}>
+                Backup de datos
+              </h2>
+              <button onClick={() => setBackupModalOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", color: "#9AA9B8" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: 12.5, color: COLORS.inkSoft, marginTop: 0, marginBottom: 18 }}>
+              Todo se guarda en este navegador. Descargá una copia de vez en cuando para no perder nada si cambiás de compu o se borra el caché.
+            </p>
+
+            <button
+              onClick={exportBackup}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                background: COLORS.navy,
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "11px 0",
+                fontSize: 13.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+                marginBottom: 10,
+              }}
+            >
+              <Download size={16} /> Descargar backup
+            </button>
+
+            <label
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                background: "#fff",
+                color: COLORS.navy,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 8,
+                padding: "11px 0",
+                fontSize: 13.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <Upload size={16} /> Restaurar desde archivo
+              <input
+                type="file"
+                accept="application/json"
+                onChange={(e) => e.target.files[0] && importBackup(e.target.files[0])}
+                style={{ display: "none" }}
+              />
+            </label>
+
+            {backupMessage && (
+              <div
+                style={{
+                  marginTop: 14,
+                  fontSize: 12.5,
+                  color: backupMessage.type === "ok" ? "#15803D" : "#EB2D2D",
+                }}
+              >
+                {backupMessage.text}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ---------- Modal pedir cambios ---------- */}
       {changesModalOpen && changesTarget && (
         <div
@@ -2069,35 +2889,142 @@ export default function StreambeOpsHub() {
   );
 }
 
-function StatusBadge({ status }) {
-  const c = statusColor(status);
+function DateView({ items, onOpenItem }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const withDate = items.filter((it) => it.date).sort((a, b) => a.date.localeCompare(b.date));
+  const noDate = items.filter((it) => !it.date);
+
+  const groups = [];
+  withDate.forEach((it) => {
+    const last = groups[groups.length - 1];
+    if (last && last.date === it.date) {
+      last.items.push(it);
+    } else {
+      groups.push({ date: it.date, items: [it] });
+    }
+  });
+
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr + "T00:00:00");
+    const label = d.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  };
+
+  if (withDate.length === 0 && noDate.length === 0) {
+    return (
+      <div
+        style={{
+          border: "1px dashed #E8E8E3",
+          borderRadius: 12,
+          padding: "40px 20px",
+          textAlign: "center",
+          color: "#A9B6C3",
+          fontSize: 13,
+        }}
+      >
+        Todavía no hay contenido cargado.
+      </div>
+    );
+  }
+
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        fontSize: 10.5,
-        fontFamily: "'Inter', monospace",
-        fontWeight: 600,
-        padding: "3px 8px",
-        borderRadius: 6,
-        background: c.bg,
-        color: c.text,
-      }}
-    >
-      {status === "Completado" && <CheckCircle2 size={11} />}
-      {status === "En curso" && <Clock size={11} />}
-      {status === "Pendiente" && <Circle size={11} />}
-      {status}
-    </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      {groups.map((group) => {
+        const isPast = group.date < todayStr;
+        const isToday = group.date === todayStr;
+        return (
+          <div key={group.date}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span
+                style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  color: "#10192B",
+                }}
+              >
+                {formatDate(group.date)}
+              </span>
+              {isToday && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#0253E8", background: "rgba(2,83,232,0.1)", padding: "2px 7px", borderRadius: 6 }}>
+                  HOY
+                </span>
+              )}
+              {isPast && group.items.some((it) => it.status !== "publicado") && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#B45309", background: "rgba(245,158,11,0.14)", padding: "2px 7px", borderRadius: 6 }}>
+                  ATRASADO
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {group.items.map((item) => (
+                <DateRow key={item.id} item={item} onClick={() => onOpenItem(item)} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {noDate.length > 0 && (
+        <div>
+          <div style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontWeight: 700, fontSize: 13.5, color: "#5B6B7C", marginBottom: 10 }}>
+            Sin fecha asignada
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {noDate.map((item) => (
+              <DateRow key={item.id} item={item} onClick={() => onOpenItem(item)} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function statusColor(status) {
-  if (status === "Completado") return { bg: "rgba(41,201,39,0.12)", text: "#15803D" };
-  if (status === "En curso") return { bg: "rgba(245,158,11,0.14)", text: "#B45309" };
-  return { bg: "#EEF1F5", text: "#5B6B7C" };
+function DateRow({ item, onClick }) {
+  const Plat = PLATFORM_META[item.platform]?.icon;
+  const meta = CONTENT_STATUS_META[item.status];
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        background: "#FFFFFF",
+        border: "1px solid #E8E8E3",
+        borderRadius: 10,
+        padding: "10px 14px",
+        cursor: "pointer",
+      }}
+    >
+      {Plat && <Plat size={14} color={PLATFORM_META[item.platform]?.color} style={{ flexShrink: 0 }} />}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#10192B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {item.title}
+        </div>
+        {item.angle && (
+          <div style={{ fontSize: 11.5, color: "#5B6B7C", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {item.angle}
+          </div>
+        )}
+      </div>
+      <span
+        style={{
+          flexShrink: 0,
+          fontSize: 10.5,
+          fontWeight: 600,
+          padding: "3px 8px",
+          borderRadius: 6,
+          background: meta.bg,
+          color: meta.text,
+        }}
+      >
+        {meta.label}
+      </span>
+    </div>
+  );
 }
 
 function FieldLabel({ children }) {
